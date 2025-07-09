@@ -41,6 +41,38 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
+/* ───────── fetch & parse YAML to Map ───────── */
+private static Map<String,Object> loadYamlToMap(
+        OkHttpClient client, String uriStr) throws IOException {
+
+    URI uri = URI.create(uriStr);
+    ObjectMapper yaml = new ObjectMapper(new YAMLFactory());
+
+    if ("http".equals(uri.getScheme()) || "https".equals(uri.getScheme())) {
+        Request fetch = new Request.Builder().url(uriStr).build();
+        try (Response r = client.newCall(fetch).execute()) {
+            if (!r.isSuccessful() || r.body() == null)
+                throw new IOException("Failed to fetch " + uriStr + " → " + r.code());
+            try (InputStream in = r.body().byteStream()) {
+                return yaml.readValue(in, Map.class);
+            }
+        }
+    }
+    if ("file".equals(uri.getScheme())) {
+        try (InputStream in = Files.newInputStream(Path.of(uri))) {
+            return yaml.readValue(in, Map.class);
+        }
+    }
+    // Fall-back: treat as plain path (relative or absolute)
+    if (Files.exists(Path.of(uriStr))) {
+        try (InputStream in = Files.newInputStream(Path.of(uriStr))) {
+            return yaml.readValue(in, Map.class);
+        }
+    }
+    throw new IllegalArgumentException("Unsupported DEPLOYMENT_URI: " + uriStr);
+}
+
+
 public class UnifiedKubernetesClient {
 
     /* ───────────────────────────── ENTRY ───────────────────────────── */
@@ -168,22 +200,34 @@ public class UnifiedKubernetesClient {
             }
             case "create" -> {
                 if (uri == null) die("DEPLOYMENT_URI must be set for create");
+
+                // 🔒 Allow only .yaml or .yml
+                if (!(uri.endsWith(".yaml") || uri.endsWith(".yml"))) {
+                    throw new IllegalArgumentException("DEPLOYMENT_URI must end with .yaml or .yml → got: " + uri);
+                }
+
                 String url = api + "/apis/apps/v1/namespaces/" + ns + "/deployments";
-                String yaml = uri.startsWith("http") ? new String(new URL(uri).openStream().readAllBytes())
-                        : Files.readString(Path.of(uri));
-                Map<String,Object> obj = new ObjectMapper(new YAMLFactory()).readValue(yaml, Map.class);
+
+                // Parse YAML → Map
+                Map<String, Object> obj = loadYamlToMap(client, uri);
+
+                // Convert to JSON request body
                 RequestBody body = RequestBody.create(
-                        new ObjectMapper().writeValueAsBytes(obj),
-                        MediaType.parse("application/json"));
+                new ObjectMapper().writeValueAsBytes(obj),
+                MediaType.parse("application/json"));
+
+                // POST the Deployment
                 Request req = new Request.Builder().url(url)
                         .post(body)
                         .header("Authorization", "Bearer " + token)
                         .header("Content-Type", "application/json")
                         .build();
+
                 try (Response rsp = client.newCall(req).execute()) {
                     printResult("Created", rsp);
-                }
+                }    
             }
+
             case "scale" -> {
                 String url = api + "/apis/apps/v1/namespaces/" + ns + "/deployments/" + name;
                 String patch = "{\"spec\":{\"replicas\":" + scaleCount + "}}";
