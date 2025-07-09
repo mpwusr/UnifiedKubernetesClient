@@ -1,0 +1,57 @@
+// ──────────────────────────────────────────────────────────────
+// build.gradle  (Groovy DSL)
+// ──────────────────────────────────────────────────────────────
+plugins {
+    id 'java'
+    id 'application'
+    id 'com.github.johnrengelman.shadow' version '8.1.1'
+}
+
+group   = 'com.example'
+version = '0.1.0'
+
+sourceCompatibility = '17'
+targetCompatibility = '17'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.fasterxml.jackson.core:jackson-databind:2.17.0'
+    implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.17.0'
+    implementation 'io.github.cdimascio:dotenv-java:3.0.0'
+    implementation 'org.yaml:snakeyaml:2.2'
+
+    testImplementation 'junit:junit:4.13.2'
+}
+
+application {
+    // Fully‑qualified main class (no package)
+    mainClass = 'UnifiedKubernetesClient'
+}
+
+// Ensure UTF‑8 source encoding
+tasks.withType(JavaCompile) {
+    options.encoding = 'UTF-8'
+}
+
+// Conventional JAR manifest for non‑shadow builds
+jar {
+    manifest {
+        attributes 'Main-Class': application.mainClass
+    }
+}
+
+// Shadow (fat/uber) JAR: `./gradlew shadowJar`
+shadowJar {
+    archiveClassifier.set('')            // replace default "-all" suffix
+    mergeServiceFiles()                  // handle META‑INF/services
+}
+
+// Convenience task to run the app with current classpath: `./gradlew run`
+// Resolve shadowJar output warnings
+tasks.named("distZip").configure { dependsOn(shadowJar) }
+tasks.named("distTar").configure { dependsOn(shadowJar) }
+tasks.named("startScripts").configure { dependsOn(shadowJar) }

@@ -1,0 +1,49 @@
+# Java compiled class files
+*.class
+
+# Log files
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.ear
+
+# Maven
+target/
+
+# Gradle
+.gradle/
+build/
+
+# Eclipse
+.project
+.classpath
+.csettings/
+.settings/
+
+# VS Code
+.vscode/
+
+# macOS metadata
+.DS_Store
+
+# Environment files
+.env
+.env.*
+
+# IntelliJ – if you want to ignore user-specific config but not all .idea files
+.idea/workspace.xml
+.idea/usage.statistics.xml
+.idea/dictionaries
+.idea/shelf/
+.idea/tasks.xml
+
+# Optional: ignore generated test results
+test-
